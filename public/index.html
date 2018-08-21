@@ -40,7 +40,7 @@
     </div>
 
     <div class="fixed-action-btn" style="bottom: 45px; right: 24px;">
-        <a class="btn-floating btn-large waves-effect waves-light red"><i class="material-icons">add</i></a>
+        <a class="btn-floating btn-large waves-effect waves-light red" onclick='initMemo();'><i class="material-icons">add</i></a>
     </div>
 
     <div class="preloader-wrapper big active" style="position:absolute; z-index:1000; left:50%; top:50%; display:none;">
@@ -69,8 +69,9 @@
         // database instance
         var database;
         // user information instance
-        var userInfo
-
+        var userInfo;
+        // key data
+        var selectedKey;
 
         // Initialize Firebase
         var config = {
@@ -102,9 +103,29 @@
           }
         });
 
+        function fn_delete_data(key){
+          if(!confirm('삭제하시겠습니까?')){
+            return;
+          }
+          var memoRef = database.ref('memos/' + userInfo.uid + '/' + key);
+          memoRef.remove();
+          $("#"+key).remove();
+        }
+
         function get_memo_list(){
           var memoRef = database.ref('memos/' + userInfo.uid);
           memoRef.on('child_added', on_child_added);
+          memoRef.on('child_changed', function(data){
+            console.log( data.key);
+            console.log( data.val());
+
+            var key = data.key;
+            var txt = data.val().txt;
+            var title = txt.substr(0, txt.indexOf('\n'));
+
+            $("#" + key + " >.title").text(title);
+            $("#" + key + " >.txt").text(txt);
+          });
           /* 
           {
             memos : {
@@ -129,7 +150,8 @@
           var key = data.key;
           var memoData = data.val();
           var txt = memoData.txt;
-          var title = memoData.title;
+          //var title;
+          var title = txt.substr(0,txt.indexOf('\n'));
           var firstTxt = txt.substr(0,1);
 
           var html =
@@ -138,16 +160,23 @@
            "<span class=\"title\">" + title + "</span>" +
            "<p class='txt'>" + txt + "<br>" +
            "</p>" +
+           "<a href=\"#!\" onclick=\"fn_delete_data('"+ key + "')\" class=\"secondary-content\"><i class=\"material-icons\">grade</i></a>" +
            "</li>";
 
            $(".collection").append(html);
 
-          console.log(data.val());
+          console.log(txt);
         }
         function fn_get_data_one(key){
+          selectedKey = key;
           var memoRef = database.ref('memos/' + userInfo.uid+'/' + key).once('value').then(function(snapshot){
               $(".textarea").val(snapshot.val().txt);
           });
+        }
+
+        function initMemo(){
+          $('.textarea').val('');
+          selectedKey = null;
         }
 
         function save_data(){
@@ -156,11 +185,19 @@
           if ( txt == '' ){
             return;
           }
-          //push 
-          memoRef.push({
-            txt : txt,
-            createDate : new Date().getTime()
-          })
+          if (selectedKey){
+             memoRef = database.ref('memos/' + userInfo.uid + '/' + selectedKey);
+            memoRef.update({
+              txt : txt,
+              updateDate : new Date().getTime()
+            });
+          } else {
+            //push 
+            memoRef.push({
+              txt : txt,
+              createDate : new Date().getTime()
+            });
+          }
         }
 
         $(function(){
